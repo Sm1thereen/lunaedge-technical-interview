@@ -4,6 +4,7 @@ import { useForm } from "react-hook-form";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { getPhoto, getPokemons } from "../../service/api";
+import MyModal from "../MyModal";
 
 const NameSchema = zod.object({
   firstName: zod
@@ -24,18 +25,19 @@ export default function MainPage() {
   const [selectedPokemons, setSelectedPokemons] = useState<SelectedPokemons>(
     []
   );
+  const [pokemonPhotos, setPokemonPhotos] = useState<string[]>([]);
+  const [isModalOpen, setModalOpen] = useState(false);
+  const [formData, setFormData] = useState(null);
   const {
     register,
     handleSubmit,
     formState: { errors },
-    setValue,
   } = useForm({
     resolver: zodResolver(NameSchema),
     mode: "onBlur",
     reValidateMode: "onChange",
     shouldFocusError: true,
   });
-
   const getData = async () => {
     try {
       const newPokemons = await getPokemons();
@@ -46,6 +48,32 @@ export default function MainPage() {
     }
   };
 
+  const openModal = () => {
+    setModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setModalOpen(false);
+  };
+  const loadPokemonsPhoto = async (selectedIndex: number, slot: number) => {
+    try {
+      console.log("Selected Index", selectedIndex);
+      console.log("slot", slot);
+      const response = await getPhoto(selectedIndex);
+      console.log("response", response);
+      if (response) {
+        const updatedPhotos = [...pokemonPhotos];
+        updatedPhotos[slot - 1] = response;
+        setPokemonPhotos(updatedPhotos);
+        console.log("PokemonPhotos:", updatedPhotos);
+      } else {
+        console.error("Invalid response format:", response);
+      }
+    } catch (error) {
+      console.error("Error loading Pokemon photo", error);
+    }
+  };
+
   const onSubmit = async (data: any) => {
     try {
       FourSelect.forEach((slot) => {
@@ -53,18 +81,14 @@ export default function MainPage() {
         data[selectName] = selectedPokemons[slot - 1];
       });
       console.log("Form data:", data);
+      console.log("Selected", selectedPokemons);
+      setFormData(data);
+      openModal();
     } catch (error) {
       console.error("Error", error);
     }
   };
-  const onSelectPokemon = (index: number, selectName: string) => {
-    setSelectedPokemons((prevSelected: SelectedPokemons) => {
-      const updatedSelectedPokemons: SelectedPokemons = [...prevSelected];
-      updatedSelectedPokemons[index] = null;
-      setValue(selectName, null);
-      return updatedSelectedPokemons;
-    });
-  };
+
   useEffect(() => {
     console.log("useEffect is running");
     getData();
@@ -157,6 +181,7 @@ export default function MainPage() {
                   <select
                     id={`pokemonSelect${slot}`}
                     className="w-full bg-white max-h48 cursor-pointer"
+                    defaultValue=""
                     {...register(`pokemonSelect${slot}`, {
                       required: `Please select a Pokemon for slot ${slot}`,
                       onChange: (e) => {
@@ -166,6 +191,7 @@ export default function MainPage() {
                         ];
                         updatedSelectedPokemons[index] = selectedIndex;
                         setSelectedPokemons(updatedSelectedPokemons);
+                        loadPokemonsPhoto(selectedIndex + 1, index + 1);
                       },
                     })}>
                     <option value="" disabled>
@@ -181,14 +207,30 @@ export default function MainPage() {
                     ))}
                   </select>
                 </div>
+                <div className="pokemon-photo flex mx-auto w-40 h-40">
+                  {pokemonPhotos[slot - 1] && (
+                    <img
+                      src={pokemonPhotos[slot - 1]}
+                      alt={`Pokemon ${slot}`}
+                      className=""
+                    />
+                  )}
+                </div>
               </div>
             ))}
           </div>
           <button
-            className="bg-violet-600 p-5 m-5 rounded mx-auto text-white font-semibold hover:bg-violet-500"
-            type="submit">
+            className="bg-violet-600 p-5 m-5 rounded mx-auto text-white font-semibold hover:bg-violet-500 disabled:opacity-75"
+            type="submit"
+            disabled={selectedPokemons.length !== 4}>
             Submit
           </button>
+          <MyModal
+            isOpen={isModalOpen}
+            onRequestClose={closeModal}
+            formData={formData}
+            pokemonPhotos={pokemonPhotos}
+          />
         </form>
       </div>
     </div>
