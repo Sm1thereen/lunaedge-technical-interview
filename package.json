@@ -2,11 +2,14 @@
   "name": "technical-interview",
   "private": true,
   "version": "1.0.0",
+  "homepage": "https://Sm1thereen.github.io/lunaedge-technical-interview",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "predeploy": "yarn run build",
+    "deploy": "gh-pages -d dist"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.3.2",
