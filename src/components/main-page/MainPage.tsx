@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from "react";
 import zod from "zod";
 import { useForm } from "react-hook-form";
+
 import { zodResolver } from "@hookform/resolvers/zod";
-import { getPokemons } from "../../service/api";
+import { getPhoto, getPokemons } from "../../service/api";
 
 const NameSchema = zod.object({
   firstName: zod
@@ -16,21 +17,18 @@ const NameSchema = zod.object({
     .max(12)
     .regex(/^[A-Za-z]+$/),
 });
-
+type SelectedPokemons = (number | null)[];
+const FourSelect = [1, 2, 3, 4];
 export default function MainPage() {
   const [allPokemons, setAllPokemons] = useState<any[]>([]);
-  const [currentPage, setCurrentPage] = useState<number>(1);
-  const [loading, setLoading] = useState<boolean>(false);
-  const totalPokemons = 300;
-
-  const onSubmit = (data: any) => {
-    console.log(data);
-  };
-
+  const [selectedPokemons, setSelectedPokemons] = useState<SelectedPokemons>(
+    []
+  );
   const {
     register,
     handleSubmit,
     formState: { errors },
+    setValue,
   } = useForm({
     resolver: zodResolver(NameSchema),
     mode: "onBlur",
@@ -38,49 +36,47 @@ export default function MainPage() {
     shouldFocusError: true,
   });
 
-  const getData = async (page: number) => {
+  const getData = async () => {
     try {
-      const limit = 100;
-      const offset = (page - 1) * limit;
-      const newPokemons = await getPokemons(limit, offset);
-      setAllPokemons((prevPokemons) => [...prevPokemons, ...newPokemons]);
-      setCurrentPage((prevPage) => prevPage + 1);
-      setLoading(false);
-      console.log("getData:", newPokemons);
+      const newPokemons = await getPokemons();
+      setAllPokemons(newPokemons);
+      console.log("newPokemons:", newPokemons);
     } catch (error) {
       console.error("Error", error);
-      setLoading(false);
     }
   };
 
-  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    const selectElement = e.currentTarget.querySelector("select");
-
-    if (!selectElement) {
-      return;
-    }
-
-    const bottom =
-      selectElement.scrollTop + selectElement.clientHeight >=
-      selectElement.scrollHeight - 10;
-
-    if (bottom && !loading && allPokemons.length < totalPokemons) {
-      getData(currentPage);
+  const onSubmit = async (data: any) => {
+    try {
+      FourSelect.forEach((slot) => {
+        const selectName = `pokemonSelect${slot}`;
+        data[selectName] = selectedPokemons[slot - 1];
+      });
+      console.log("Form data:", data);
+    } catch (error) {
+      console.error("Error", error);
     }
   };
-
-  const handleSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    console.log("Selected Pokemon:", e.target.value);
+  const onSelectPokemon = (index: number, selectName: string) => {
+    setSelectedPokemons((prevSelected: SelectedPokemons) => {
+      const updatedSelectedPokemons: SelectedPokemons = [...prevSelected];
+      updatedSelectedPokemons[index] = null;
+      setValue(selectName, null);
+      return updatedSelectedPokemons;
+    });
   };
-
   useEffect(() => {
-    getData(currentPage);
+    console.log("useEffect is running");
+    getData();
   }, []);
 
   return (
     <div>
       <div className="container mx-auto">
-        <form action="" className="mx-auto">
+        <form
+          action=""
+          className="mx-auto flex justify-center flex-col"
+          onSubmit={handleSubmit(onSubmit)}>
           <div className="input-wrapper flex space-x-2 justify-center mt-5 gap-x-8">
             <div className="first-name-wrapper flex flex-col mb-4">
               <label htmlFor="">Name</label>
@@ -151,97 +147,48 @@ export default function MainPage() {
               )}
             </div>
           </div>
-
-          <div className="select-wrapper flex justify-center align-center gap-x-14">
-            <div className="select-wrapper__item">
-              <label htmlFor="pokemonSelect">Select a Pokemon:</label>
-              <div
-                className="h-15 rounded-md border-2  pl-2 pr-4 py-3
-                  hover:border-violet-500 focus:border-violet-500 focus:outline-none max-h48"
-                onWheel={handleScroll}>
-                <select
-                  id="pokemonSelect"
-                  onChange={handleSelectChange}
-                  className="w-full bg-white ">
-                  {allPokemons.map((pokemon, index) => (
-                    <option key={index} value={pokemon.name}>
-                      {index + 1} - {pokemon.name}
+          <div className="select-wrapper flex gap-x-12 items-center justify-center">
+            {FourSelect.map((slot, index) => (
+              <div key={index} className="select-wrapper__item">
+                <label htmlFor={`pokemonSelect${slot}`}>
+                  {`Select a Pokemon for slot ${slot}:`}
+                </label>
+                <div className="h-15 rounded-md border-2 pl-2 pr-4 py-3 hover:border-violet-500 focus:border-violet-500 focus:outline-none cursor-pointer">
+                  <select
+                    id={`pokemonSelect${slot}`}
+                    className="w-full bg-white max-h48 cursor-pointer"
+                    {...register(`pokemonSelect${slot}`, {
+                      required: `Please select a Pokemon for slot ${slot}`,
+                      onChange: (e) => {
+                        const selectedIndex = parseInt(e.target.value, 10);
+                        const updatedSelectedPokemons: SelectedPokemons = [
+                          ...selectedPokemons,
+                        ];
+                        updatedSelectedPokemons[index] = selectedIndex;
+                        setSelectedPokemons(updatedSelectedPokemons);
+                      },
+                    })}>
+                    <option value="" disabled>
+                      Select a Pokemon
                     </option>
-                  ))}
-                </select>
+                    {allPokemons.map((pokemon, index) => (
+                      <option
+                        key={index}
+                        value={index}
+                        disabled={selectedPokemons.includes(index)}>
+                        {index + 1} {pokemon.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
-              <div className="information-pokemon max-w-72 bg-red">
-                Lorem ipsum dolor sit amet consectetur adipisicing elit.
-                Laudantium tempore molestias ea excepturi fugit laborum!
-              </div>
-            </div>
-            <div className="select-wrapper__item">
-              <label htmlFor="pokemonSelect">Select a Pokemon:</label>
-              <div
-                className="h-15 rounded-md border-2  pl-2 pr-4 py-3
-                  hover:border-violet-500 focus:border-violet-500 focus:outline-none max-h48"
-                onWheel={handleScroll}>
-                <select
-                  id="pokemonSelect"
-                  onChange={handleSelectChange}
-                  className="w-full bg-white ">
-                  {allPokemons.map((pokemon, index) => (
-                    <option key={index} value={pokemon.name}>
-                      {index + 1} - {pokemon.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="information-pokemon max-w-72 bg-red">
-                Lorem ipsum dolor sit amet consectetur adipisicing elit.
-                Laudantium tempore molestias ea excepturi fugit laborum!
-              </div>
-            </div>
-            <div className="select-wrapper__item">
-              <label htmlFor="pokemonSelect">Select a Pokemon:</label>
-              <div
-                className="h-15 rounded-md border-2  pl-2 pr-4 py-3
-                  hover:border-violet-500 focus:border-violet-500 focus:outline-none max-h48"
-                onWheel={handleScroll}>
-                <select
-                  id="pokemonSelect"
-                  onChange={handleSelectChange}
-                  className="w-full bg-white ">
-                  {allPokemons.map((pokemon, index) => (
-                    <option key={index} value={pokemon.name}>
-                      {index + 1} - {pokemon.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="information-pokemon max-w-72 bg-red">
-                Lorem ipsum dolor sit amet consectetur adipisicing elit.
-                Laudantium tempore molestias ea excepturi fugit laborum!
-              </div>
-            </div>
-            <div className="select-wrapper__item">
-              <label htmlFor="pokemonSelect">Select a Pokemon:</label>
-              <div
-                className="h-15 rounded-md border-2  pl-2 pr-4 py-3
-                  hover:border-violet-500 focus:border-violet-500 focus:outline-none max-h48"
-                onWheel={handleScroll}>
-                <select
-                  id="pokemonSelect"
-                  onChange={handleSelectChange}
-                  className="w-full bg-white ">
-                  {allPokemons.map((pokemon, index) => (
-                    <option key={index} value={pokemon.name}>
-                      {index + 1} - {pokemon.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="information-pokemon max-w-72 bg-red">
-                Lorem ipsum dolor sit amet consectetur adipisicing elit.
-                Laudantium tempore molestias ea excepturi fugit laborum!
-              </div>
-            </div>
+            ))}
           </div>
+          <button
+            className="bg-violet-600 p-5 m-5 rounded mx-auto text-white font-semibold hover:bg-violet-500"
+            type="submit">
+            Submit
+          </button>
         </form>
       </div>
     </div>
